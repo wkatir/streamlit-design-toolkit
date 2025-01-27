@@ -61,16 +61,15 @@ def process_image(image, width, height, gravity_option):
                 "crop": "fill",
                 "gravity": gravity_option,
                 "quality": 100,
-                "dpr": 1,
+                "dpr": 3,
+                "flags": "preserve_transparency" if image.name.lower().endswith('.png') else None
             }]
         )
 
         processed_url = response['secure_url']
         processed_image = requests.get(processed_url).content
 
-        # Eliminar la imagen de Cloudinary después de procesarla
         cloudinary.api.delete_resources([response['public_id']])
-
         return processed_image
     except Exception as e:
         st.error(f"Error procesando imagen: {e}")
@@ -78,12 +77,30 @@ def process_image(image, width, height, gravity_option):
 
 
 def main():
-    # Inicializar Cloudinary al principio
     init_cloudinary()
 
     st.title("✂️ Cloudinary Smart Crop")
 
-    # Configuración de dimensiones y gravedad
+    with st.expander("📌 Instrucciones de uso", expanded=True):
+        st.markdown("""
+        **Recorta y redimensiona imágenes inteligentemente con Cloudinary**
+
+        **Formatos soportados:**
+        ✅ PNG, JPG, JPEG, WEBP
+
+        **Características principales:**
+        - 🔍 Detección automática de rostros (opción 'face'/'faces')
+        - 🖼️ Mantenimiento de transparencia en PNG
+        - 📐 Redimensionado preciso con diferentes modos de gravedad
+        - 🚀 Procesamiento por lotes y descarga en ZIP
+
+        **Pasos para usar:**
+        1. ⚙️ Configura dimensiones deseadas
+        2. 🎯 Selecciona el tipo de gravedad
+        3. 📤 Sube tus imágenes (máx. 10MB c/u)
+        4. 🚀 Procesa y descarga los resultados
+        """)
+
     col1, col2, col3 = st.columns(3)
     with col1:
         width = st.number_input("Ancho (px)", value=1000, min_value=100, max_value=3000)
@@ -93,54 +110,58 @@ def main():
         gravity_option = st.selectbox(
             "Gravedad",
             ["auto", "center", "face", "faces", "north", "south", "east", "west"],
-            help="Determina qué parte de la imagen mantener al recortar"
+            help="Configura cómo se enfocará el recorte en la imagen"
         )
 
     uploaded_files = st.file_uploader(
         "Sube tus imágenes (máx. 10MB por archivo)",
-        type=['png', 'jpg', 'jpeg'],
+        type=['png', 'jpg', 'jpeg', 'webp'],
         accept_multiple_files=True
     )
 
     if uploaded_files:
-        st.header("Imágenes Originales")
+        st.header("Vista Previa Original")
         cols = st.columns(3)
         for idx, file in enumerate(uploaded_files):
             with cols[idx % 3]:
-                st.image(file)
+                st.image(file, caption=file.name)
 
-        if st.button("Procesar Imágenes"):
-            if not st.session_state.get('cloudinary_initialized', False):
-                st.error("Por favor, asegúrate de que Cloudinary esté correctamente configurado")
-                return
-
+        if st.button("✨ Procesar Imágenes"):
             processed_images = []
             progress_bar = st.progress(0)
 
-            for idx, file in enumerate(uploaded_files):
-                with st.spinner(f'Procesando imagen {idx + 1}/{len(uploaded_files)}...'):
-                    processed = process_image(file, width, height, gravity_option)
-                    if processed:
-                        processed_images.append(processed)
-                    progress_bar.progress((idx + 1) / len(uploaded_files))
+            with st.status("Procesando imágenes...", expanded=True) as status:
+                for idx, file in enumerate(uploaded_files):
+                    try:
+                        st.write(f"Procesando: {file.name}")
+                        processed = process_image(file, width, height, gravity_option)
+                        if processed:
+                            processed_images.append((file.name, processed))
+                            progress_bar.progress((idx + 1) / len(uploaded_files))
+                    except Exception as e:
+                        st.error(f"Error con {file.name}: {str(e)}")
+
+                status.update(label="Proceso completado!", state="complete")
 
             if processed_images:
-                st.header("Imágenes Procesadas")
+                st.header("Resultados Finales")
                 cols = st.columns(3)
-                for idx, img_bytes in enumerate(processed_images):
+                for idx, (name, img_bytes) in enumerate(processed_images):
                     with cols[idx % 3]:
-                        st.image(img_bytes)
+                        st.image(img_bytes, caption=name)
 
                 zip_buffer = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-                    for idx, img_bytes in enumerate(processed_images):
-                        zip_file.writestr(f'imagen_procesada_{idx}.jpg', img_bytes)
+                    for name, img_bytes in processed_images:
+                        ext = name.split('.')[-1].lower()
+                        zip_file.writestr(f"procesada_{name}", img_bytes)
 
                 st.download_button(
-                    label="Descargar todas las imágenes",
+                    label="📥 Descargar Todas",
                     data=zip_buffer.getvalue(),
                     file_name="imagenes_procesadas.zip",
-                    mime="application/zip"
+                    mime="application/zip",
+                    type="primary"
                 )
 
 

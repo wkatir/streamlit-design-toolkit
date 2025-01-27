@@ -13,7 +13,6 @@ def init_cloudinary():
         try:
             cloudinary.config(url=st.secrets['CLOUDINARY_URL'])
             st.session_state.cloudinary_initialized = True
-            # Solo ejecutar cleanup una vez después de inicializar correctamente
             cleanup_cloudinary()
         except Exception as e:
             st.error("Error: No se encontraron las credenciales de Cloudinary en secrets.toml")
@@ -62,7 +61,7 @@ def process_image(image, width, height):
                 "crop": "pad",
                 "background": "gen_fill",
                 "quality": 100,
-                "dpr": 1,
+                "dpr": 3,
                 "flags": "preserve_transparency"
             }]
         )
@@ -76,10 +75,40 @@ def process_image(image, width, height):
 
 
 def main():
-    # Inicializar Cloudinary al principio
     init_cloudinary()
 
     st.title("🤖 Cloudinary AI Background Generator")
+
+    with st.expander("📌 ¿Cómo usar esta herramienta?", expanded=True):
+        st.markdown("""
+        **Transforma tus imágenes automáticamente con IA:**                    
+
+        Esta herramienta utiliza la IA de Cloudinary para:
+        - 🔄 Redimensionar imágenes manteniendo la relación de aspecto
+        - 🎨 Generar fondos coherentes con la imagen usando IA
+        - 📥 Descargar múltiples imágenes procesadas en un ZIP
+
+        **Formatos soportados:**
+        ✅ PNG, JPG, JPEG, WEBP
+
+        **Pasos para usar:**
+        1. ⚙️ Define las dimensiones deseadas (ancho y alto)
+        2. 📤 Sube tus imágenes (hasta 10MB c/u)
+        3. 🚀 Haz clic en "Procesar Imágenes"
+        4. ⏬ Descarga los resultados finales
+
+        **Características clave:**
+        - Mantiene transparencia en PNGs
+        - Soporte para formatos modernos (WEBP)
+        - Calidad ultra HD (DPR 3)
+        - Procesamiento por lotes
+        - Fondo generado por IA se adapta al contexto
+
+        **Notas importantes:**
+        - Las imágenes subidas se borrarán automáticamente después del procesamiento
+        - Para mejores resultados con IA, usa imágenes con sujetos bien definidos
+        - El tiempo de procesamiento varía según el tamaño y cantidad de imágenes
+        """)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -89,7 +118,7 @@ def main():
 
     uploaded_files = st.file_uploader(
         "Sube tus imágenes (máx. 10MB por archivo)",
-        type=['png', 'jpg', 'jpeg'],
+        type=['png', 'jpg', 'jpeg', 'webp'],
         accept_multiple_files=True
     )
 
