@@ -9,7 +9,7 @@ def main():
     )
 
     st.title("AI Design Hub")
-    st.subheader("Automatización Inteligente de Diseño Publicitario")
+    st.subheader("Automatización Inteligente de Diseño")
 
     col1, col2, col3, col4 = st.columns(4)
 
