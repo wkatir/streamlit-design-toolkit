@@ -1,6 +1,5 @@
 import streamlit as st
 
-
 def main():
     st.set_page_config(
         page_title="AI Design Hub",
@@ -11,43 +10,34 @@ def main():
     st.title("AI Design Hub")
     st.subheader("Automatización Inteligente de Diseño")
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown("### 🌟 Cloudinary AI")
+        st.markdown("### 🌟 Generador de Fondos AI")
         st.markdown("""
-       - Expansión inteligente de imágenes
-       - Generación de contenido con IA
-       """)
-        st.button("Expandir lienzo", key="canvas")
+        - Expansión de imágenes con IA
+        - Mantenimiento de transparencia
+        - Descarga múltiple en ZIP
+        """)
 
     with col2:
-        st.markdown("### 🔮 Meta Segment AI")
+        st.markdown("### ✂️ Smart Crop AI")
         st.markdown("""
-       - Segmentación precisa con SAM
-       - Edición por objetos
-       """)
-        st.button("Segmentar", key="sam")
+        - Recorte inteligente con IA
+        - Detección de rostros
+        - Multiples modos de recorte
+        """)
 
     with col3:
-        st.markdown("### ☁️ Cloud Preview")
+        st.markdown("### 📁 Optimizador de Imágenes")
         st.markdown("""
-       - Previews optimizados
-       - Transformación en la nube
-       """)
-        st.button("Generar preview", key="preview")
-
-    with col4:
-        st.markdown("### 🚀 Próximamente")
-        st.markdown("""
-       - Herramientas avanzadas
-       - Innovación constante
-       """)
-        st.button("Más información", key="coming_soon", disabled=True)
+        - Compresión inteligente
+        - Reducción de tamaño garantizada
+        - Procesamiento por lotes
+        """)
 
     st.markdown("---")
     st.markdown("Desarrollado por Wilmer Salazar")
-
 
 if __name__ == "__main__":
     main()
