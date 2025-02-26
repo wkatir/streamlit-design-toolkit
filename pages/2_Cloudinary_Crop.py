@@ -42,13 +42,21 @@ def cleanup_cloudinary():
 
 
 def process_image(image, width, height, gravity_option):
+    """
+    Procesa la imagen usando Cloudinary y retorna la imagen procesada.
+    Se reinicia el puntero del stream y se utiliza el atributo 'name'
+    para determinar si se debe preservar la transparencia en PNG.
+    """
     if not st.session_state.get('cloudinary_initialized', False):
         st.error("Cloudinary no está inicializado correctamente")
         return None
 
     try:
+        # Reinicia el puntero para leer la imagen completa
+        image.seek(0)
+        image_name = getattr(image, 'name', '')
         if not check_file_size(image, 10):
-            st.error(f"La imagen {image.name} excede el límite de 10MB")
+            st.error(f"{image_name} excede el límite de 10MB")
             return None
 
         image_content = image.read()
@@ -62,13 +70,14 @@ def process_image(image, width, height, gravity_option):
                 "gravity": gravity_option,
                 "quality": 100,
                 "dpr": 3,
-                "flags": "preserve_transparency" if image.name.lower().endswith('.png') else None
+                "flags": "preserve_transparency" if image_name.lower().endswith('.png') else None
             }]
         )
 
         processed_url = response['secure_url']
         processed_image = requests.get(processed_url).content
 
+        # Limpia el recurso procesado en Cloudinary
         cloudinary.api.delete_resources([response['public_id']])
         return processed_image
     except Exception as e:
@@ -122,26 +131,26 @@ def main():
     if uploaded_files:
         st.header("Vista Previa Original")
         cols = st.columns(3)
+        # Almacena el contenido original de cada imagen en memoria
+        original_images = []
         for idx, file in enumerate(uploaded_files):
+            file_bytes = file.getvalue()
+            original_images.append((file.name, file_bytes))
             with cols[idx % 3]:
-                st.image(file, caption=file.name)
+                st.image(file_bytes, caption=file.name)
 
         if st.button("✨ Procesar Imágenes"):
             processed_images = []
             progress_bar = st.progress(0)
 
-            with st.status("Procesando imágenes...", expanded=True) as status:
-                for idx, file in enumerate(uploaded_files):
-                    try:
-                        st.write(f"Procesando: {file.name}")
-                        processed = process_image(file, width, height, gravity_option)
-                        if processed:
-                            processed_images.append((file.name, processed))
-                            progress_bar.progress((idx + 1) / len(uploaded_files))
-                    except Exception as e:
-                        st.error(f"Error con {file.name}: {str(e)}")
-
-                status.update(label="Proceso completado!", state="complete")
+            # Procesa cada imagen utilizando un nuevo objeto BytesIO
+            for idx, (name, img_bytes) in enumerate(original_images):
+                st.write(f"Procesando: {name}")
+                img_io = io.BytesIO(img_bytes)
+                processed = process_image(img_io, width, height, gravity_option)
+                if processed:
+                    processed_images.append((name, processed))
+                progress_bar.progress((idx + 1) / len(original_images))
 
             if processed_images:
                 st.header("Resultados Finales")
@@ -153,7 +162,7 @@ def main():
                 zip_buffer = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
                     for name, img_bytes in processed_images:
-                        ext = name.split('.')[-1].lower()
+                        # Se utiliza el nombre original para mantener la extensión
                         zip_file.writestr(f"procesada_{name}", img_bytes)
 
                 st.download_button(

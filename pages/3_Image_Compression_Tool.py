@@ -53,12 +53,10 @@ def optimize_image(image_file):
         return None, None
 
 
-def process_filename(original_name):
-    """Genera nombre de archivo optimizado usando pathlib"""
+def process_filename(original_name, optimized_format):
+    """Genera nombre de archivo optimizado usando pathlib y el formato optimizado"""
     path = Path(original_name)
-    new_suffix = '.jpg'  # Por defecto usamos .jpg
-    if path.suffix.lower() in ['.png', '.PNG'] and Image.open(original_name).mode in ('RGBA', 'LA'):
-        new_suffix = '.png'  # Mantener PNG si tiene transparencia
+    new_suffix = f".{optimized_format.lower()}" if optimized_format else '.jpg'
     return f"{path.stem}_optimizado{new_suffix}"
 
 
@@ -89,32 +87,35 @@ def main():
         progress_bar = st.progress(0)
         total_files = len(uploaded_files)
 
-        with st.status("Optimizando imágenes...", expanded=True) as status:
-            for idx, file in enumerate(uploaded_files):
-                try:
-                    if file.size > 50 * 1024 * 1024:
-                        st.error(f"Archivo {file.name} excede 50MB")
-                        continue
+        st.info("Optimizando imágenes...")
 
-                    original_size = file.size
-                    optimized_data, format_used = optimize_image(file)
+        for idx, file in enumerate(uploaded_files):
+            try:
+                if file.size > 50 * 1024 * 1024:
+                    st.error(f"Archivo {file.name} excede 50MB")
+                    continue
 
-                    if optimized_data and format_used:
-                        new_size = len(optimized_data)
-                        reduction = original_size - new_size
-                        total_reduction += reduction
+                original_size = file.size
+                optimized_data, format_used = optimize_image(file)
 
-                        new_name = process_filename(file.name)
-                        processed_images.append((new_name, optimized_data, original_size, new_size))
+                if optimized_data and format_used:
+                    new_size = len(optimized_data)
+                    reduction = original_size - new_size
+                    total_reduction += reduction
 
-                        progress_bar.progress((idx + 1) / total_files)
-                        st.write(f"✅ {file.name} optimizado ({reduction / 1024:.1f} KB ahorrados)")
+                    new_name = process_filename(file.name, format_used)
+                    processed_images.append((new_name, optimized_data, original_size, new_size))
 
-                except Exception as e:
-                    st.error(f"Error procesando {file.name}: {str(e)}")
+                    st.write(f"✅ {file.name} optimizado ({reduction / 1024:.1f} KB ahorrados)")
+                else:
+                    st.write(f"⚠️ {file.name} no se optimizó porque no se logró reducir el tamaño.")
 
-            status.update(label=f"¡Optimización completada! (Ahorro total: {total_reduction / 1024:.1f} KB)",
-                         state="complete")
+                progress_bar.progress((idx + 1) / total_files)
+
+            except Exception as e:
+                st.error(f"Error procesando {file.name}: {str(e)}")
+
+        st.success(f"¡Optimización completada! (Ahorro total: {total_reduction / 1024:.1f} KB)")
 
         if processed_images:
             # Mostrar resultados
@@ -139,8 +140,7 @@ def main():
                 label="📥 Descargar Todas las Imágenes",
                 data=zip_buffer.getvalue(),
                 file_name=f"imagenes_optimizadas_{datetime.now().strftime('%Y%m%d_%H%M')}.zip",
-                mime="application/zip",
-                type="primary"
+                mime="application/zip"
             )
 
 

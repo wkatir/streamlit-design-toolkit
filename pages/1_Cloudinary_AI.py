@@ -42,14 +42,20 @@ def cleanup_cloudinary():
 
 
 def process_image(image, width, height):
+    """
+    Procesa la imagen usando Cloudinary. Se asegura de reiniciar el puntero del archivo.
+    Retorna una tupla (imagen_procesada_bytes, extension_del_archivo).
+    """
     if not st.session_state.get('cloudinary_initialized', False):
         st.error("Cloudinary no está inicializado correctamente")
-        return None
+        return None, None
 
     try:
+        # Reiniciar el puntero para garantizar la lectura completa
+        image.seek(0)
         if not check_file_size(image, 10):
-            st.error(f"La imagen {image.name} excede el límite de 10MB")
-            return None
+            st.error(f"La imagen excede el límite de 10MB")
+            return None, None
 
         image_content = image.read()
 
@@ -68,10 +74,11 @@ def process_image(image, width, height):
 
         processed_url = response['secure_url']
         processed_image = requests.get(processed_url).content
-        return processed_image
+        file_format = response.get('format', 'jpg')  # Se obtiene el formato real procesado
+        return processed_image, file_format
     except Exception as e:
         st.error(f"Error procesando imagen: {e}")
-        return None
+        return None, None
 
 
 def main():
@@ -125,9 +132,13 @@ def main():
     if uploaded_files:
         st.header("Imágenes Originales")
         cols = st.columns(3)
+        # Guardar el contenido original para evitar que se consuma el stream
+        original_images = []
         for idx, file in enumerate(uploaded_files):
+            file_bytes = file.getvalue()
+            original_images.append((file.name, file_bytes))
             with cols[idx % 3]:
-                st.image(file)
+                st.image(file_bytes)
 
         if st.button("Procesar Imágenes"):
             if not st.session_state.get('cloudinary_initialized', False):
@@ -137,24 +148,26 @@ def main():
             processed_images = []
             progress_bar = st.progress(0)
 
-            for idx, file in enumerate(uploaded_files):
-                with st.spinner(f'Procesando imagen {idx + 1}/{len(uploaded_files)}...'):
-                    processed = process_image(file, width, height)
+            for idx, (name, img_bytes) in enumerate(original_images):
+                # Crear un nuevo objeto BytesIO para cada imagen
+                img_io = io.BytesIO(img_bytes)
+                with st.spinner(f'Procesando imagen {idx + 1}/{len(original_images)}...'):
+                    processed, file_format = process_image(img_io, width, height)
                     if processed:
-                        processed_images.append(processed)
-                    progress_bar.progress((idx + 1) / len(uploaded_files))
+                        processed_images.append((processed, file_format))
+                    progress_bar.progress((idx + 1) / len(original_images))
 
             if processed_images:
                 st.header("Imágenes Procesadas")
                 cols = st.columns(3)
-                for idx, img_bytes in enumerate(processed_images):
+                for idx, (img_bytes, file_format) in enumerate(processed_images):
                     with cols[idx % 3]:
                         st.image(img_bytes)
 
                 zip_buffer = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-                    for idx, img_bytes in enumerate(processed_images):
-                        zip_file.writestr(f'imagen_procesada_{idx}.jpg', img_bytes)
+                    for idx, (img_bytes, file_format) in enumerate(processed_images):
+                        zip_file.writestr(f'imagen_procesada_{idx}.{file_format}', img_bytes)
 
                 st.download_button(
                     label="Descargar todas las imágenes",
